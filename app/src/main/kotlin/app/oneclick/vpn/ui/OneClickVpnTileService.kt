@@ -1,5 +1,7 @@
 package app.oneclick.vpn.ui
 
+import android.os.Handler
+import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import app.oneclick.vpn.vpn.TunnelState
@@ -14,7 +16,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class OneClickVpnTileService : TileService() {
-  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+  private val mainHandler = Handler(Looper.getMainLooper())
   private var stateJob: Job? = null
 
   override fun onStartListening() {
@@ -23,13 +26,15 @@ class OneClickVpnTileService : TileService() {
     stateJob?.cancel()
     stateJob = scope.launch {
       observeState().collectLatest { state ->
-        tile.state = when (state) {
-          is TunnelState.Connected -> Tile.STATE_ACTIVE
-          is TunnelState.Connecting -> Tile.STATE_UNAVAILABLE
-          else -> Tile.STATE_INACTIVE
+        mainHandler.post {
+          tile.state = when (state) {
+            is TunnelState.Connected -> Tile.STATE_ACTIVE
+            is TunnelState.Connecting -> Tile.STATE_UNAVAILABLE
+            else -> Tile.STATE_INACTIVE
+          }
+          tile.label = "OneClick VPN"
+          tile.updateTile()
         }
-        tile.label = "OneClick VPN"
-        tile.updateTile()
       }
     }
   }
